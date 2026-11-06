@@ -6,7 +6,7 @@
 <meta property="og:description" content="משחק הצבעות סודיות על החברים שלכם">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>מי בינינו?</title>
-<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script src="mqtt.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#140a2e;--card:#21134a;--card2:#2c1a5e;--line:#4a3590;--pink:#ff4fa3;--yellow:#ffd23f;--cyan:#3fe0ff;--green:#4dff9a;--text:#fff;--mut:#b9a9e6}
@@ -92,7 +92,7 @@ let U={key:'',sel:null,guess:0};
 let G=null;           // local game, or host's authoritative game
 let L=null;           // local pass-the-phone state
 // online
-let peer=null,isHost=false,code='',conns={},hostConn=null,myId=null,net={g:null,voted:[],present:[]},hostLost=false,myVotedR=-1;
+let isHost=false,code='',myId=null,net={g:null,voted:[],present:[]},myVotedR=-1;
 try{const r=new URLSearchParams(location.search).get('r');if(r&&/^\d{4}$/.test(r)){S.joinCode=r;S.fromLink=true;}}catch(e){}
 
 
@@ -116,60 +116,81 @@ function idText(g,id){const t=g.traits[id]||{};const tot=Object.values(t).reduce
   return Object.entries(t).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,n])=>`${Math.round(n/tot*100)}% ${TRAITS[k]}`).join(' · ');}
 const nm=(g,id)=>(g&&g.names&&g.names[id])||'?';
 
-/* ---------- online (PeerJS: host phone is the server) ---------- */
-let votes={};          // host only: id -> {t,g} for current round
-const presentIds=()=>[myId,...Object.keys(conns).filter(id=>conns[id]&&conns[id].open)];
+/* ---------- online (MQTT relay: works on any network, survives the host's phone sleeping briefly) ---------- */
+const BROKER='wss://broker.hivemq.com:8884/mqtt';
+let client=null,votes={},lastSeen={},lastPub='',tick=null,myVote=null,myExpose=null;
+const base=c=>'mibeinenu/v2/'+c;
+const store={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+function stablePid(){let v=store.get('mb_pid');if(!v){v='p'+Math.random().toString(36).slice(2,11);store.set('mb_pid',v);}return v;}
+const presentIds=()=>{const now=Date.now();return [myId,...Object.keys(lastSeen).filter(id=>id!==myId&&now-lastSeen[id]<15000)];};
 function curG(){if(S.mode==='local'||isHost)return G;return net.g;}
 function activeIds(g){const pres=isHost?presentIds():(net.present||[]);return Object.keys(g.names).filter(id=>pres.includes(id));}
 function votedThisRound(id){return isHost?!!votes[id]:(net.voted||[]).includes(id);}
 function votesFor(pl){const o={};pl.forEach(id=>{if(votes[id])o[id]=votes[id];});return o;}
 const cleanName=n=>String(n||'').replace(/[\u0000-\u001f]/g,'').trim().slice(0,12)||'שחקן';
-function stablePid(){const mk=()=>'mbp-'+Math.random().toString(36).slice(2,12);try{let v=sessionStorage.getItem('mb_pid');if(!v){v=mk();sessionStorage.setItem('mb_pid',v);}return v;}catch(e){return mk();}}
-function hostUpdate(){
+function connect(onConnect){
+  client=mqtt.connect(BROKER,{clientId:'mb_'+myId+'_'+Math.random().toString(36).slice(2,6),clean:true,keepalive:20,reconnectPeriod:1500,connectTimeout:8000});
+  client.on('connect',()=>{S.offline=false;onConnect();render();});
+  client.on('offline',()=>{S.offline=true;render();});
+  client.on('error',()=>{});
+}
+function pub(topic,obj,retain){if(client)client.publish(topic,JSON.stringify(obj),{qos:1,retain:!!retain});}
+/* host */
+function hostUpdate(force){
   if(!G)return;const pres=presentIds();
   if(G.phase==='lobby')Object.keys(G.names).forEach(id=>{if(!pres.includes(id))delete G.names[id];});
   if(G.phase==='vote'){const pl=pres.filter(id=>G.names[id]);if(pl.length>=2&&pl.every(id=>votes[id]))computeResult(G,pl,votesFor(pl));}
-  const msg={type:'state',g:G,voted:Object.keys(votes),present:pres};
-  Object.values(conns).forEach(c=>{try{c.open&&c.send(msg);}catch(e){}});
+  const st={g:G,voted:Object.keys(votes),present:pres};const s=JSON.stringify(st);
+  if(force||s!==lastPub){lastPub=s;pub(base(code)+'/state',{...st,ts:Date.now()},true);store.set('mb_host',{code,G,votes,myId,at:Date.now()});}
   render();
 }
-function onHostData(c,d){
-  if(!d||typeof d!=='object')return;
-  if(d.type==='hello'){conns[c.peer]=c;const known=!!G.names[c.peer];
-    if(known||Object.keys(G.names).length<10){G.names[c.peer]=cleanName(d.name);if(G.phase!=='lobby')G.scores[c.peer]=G.scores[c.peer]||0;}
-    hostUpdate();}
-  else if(d.type==='vote'){if(G.phase==='vote'&&d.r===G.round&&G.names[c.peer]&&G.names[d.t]&&Number.isFinite(d.g)){votes[c.peer]={t:d.t,g:Math.max(0,Math.min(20,Math.round(d.g)))};hostUpdate();}}
-  else if(d.type==='expose'){if(G.phase==='reveal'&&G.res&&G.res.expose&&!G.res.exposed&&c.peer===G.res.top&&d.r===G.round&&G.names[d.t]){G.res.exposed={who:d.t,target:(votes[d.t]||{}).t||null};hostUpdate();}}
+function onUp(d){
+  if(!d||typeof d.from!=='string'||d.from===myId)return;
+  lastSeen[d.from]=Date.now();const id=d.from;
+  if(!G.names[id]){if(Object.keys(G.names).length<10){G.names[id]=cleanName(d.name);if(G.phase!=='lobby')G.scores[id]=G.scores[id]||0;}}
+  else if(G.phase==='lobby')G.names[id]=cleanName(d.name);
+  const v=d.vote;if(v&&G.phase==='vote'&&v.r===G.round&&G.names[id]&&G.names[v.t]&&Number.isFinite(v.g))votes[id]={t:v.t,g:Math.max(0,Math.min(20,Math.round(v.g)))};
+  const x=d.expose;if(x&&G.phase==='reveal'&&G.res&&G.res.expose&&!G.res.exposed&&id===G.res.top&&x.r===G.round&&G.names[x.t])G.res.exposed={who:x.t,target:(votes[x.t]||{}).t||null};
+  hostUpdate();
 }
-function createRoom(tries){
-  tries=tries||0;S.busy=true;S.err='';render();
-  code=String(Math.floor(1000+Math.random()*9000));
-  peer=new Peer('mibeinenu-'+code);
-  peer.on('open',id=>{myId=id;isHost=true;conns={};votes={};G=newGame(S.vibe,S.total,{[id]:cleanName(S.name)});S.mode='online';S.screen='game';S.busy=false;hostUpdate();});
-  peer.on('connection',c=>{c.on('data',d=>onHostData(c,d));c.on('close',()=>{if(conns[c.peer]===c)delete conns[c.peer];hostUpdate();});c.on('error',()=>{});});
-  peer.on('disconnected',()=>{try{peer.reconnect();}catch(e){}});
-  peer.on('error',e=>{if(e.type==='unavailable-id'&&tries<5){try{peer.destroy();}catch(_){}createRoom(tries+1);return;}
-    if(S.screen==='game'&&isHost)return; S.busy=false;S.err='שגיאת חיבור ('+e.type+'). נסו שוב.';render();});
+function startHosting(resume){
+  isHost=true;S.busy=true;S.err='';render();
+  if(resume){code=resume.code;G=resume.G;votes=resume.votes||{};myId=resume.myId;}
+  else{myId=stablePid();code=String(Math.floor(1000+Math.random()*9000));votes={};G=newGame(S.vibe,S.total,{[myId]:cleanName(S.name)});}
+  lastSeen={};
+  connect(()=>{client.subscribe(base(code)+'/up',{qos:1});S.mode='online';S.screen='game';S.busy=false;hostUpdate(true);});
+  client.on('message',(t,m)=>{try{onUp(JSON.parse(m.toString()));}catch(e){}});
+  clearInterval(tick);tick=setInterval(()=>hostUpdate(),3000);
+  setTimeout(()=>{if(S.busy){S.busy=false;S.err='לא הצלחתי להתחבר לשרת. בדקו אינטרנט ונסו שוב.';render();}},12000);
 }
+/* player */
+function heartbeat(){const g=net.g;const msg={from:myId,name:cleanName(S.name)};
+  if(g&&myVote&&myVote.r===g.round&&g.phase==='vote')msg.vote=myVote;
+  if(g&&myExpose&&myExpose.r===g.round&&g.phase==='reveal')msg.expose=myExpose;
+  pub(base(code)+'/up',msg);}
 function joinRoom(){
-  S.busy=true;S.err='';render();
-  peer=new Peer(stablePid());
-  let timer=null;
-  const fail=msg=>{clearTimeout(timer);S.busy=false;S.err=msg;try{peer.destroy();}catch(e){}peer=null;render();};
-  peer.on('open',id=>{myId=id;
-    hostConn=peer.connect('mibeinenu-'+code,{reliable:true});
-    timer=setTimeout(()=>{if(!net.g)fail('לא מצאתי חדר עם הקוד הזה');},10000);
-    hostConn.on('open',()=>hostConn.send({type:'hello',name:cleanName(S.name)}));
-    hostConn.on('data',d=>{if(d&&d.type==='state'&&d.g){clearTimeout(timer);net=d;hostLost=false;S.mode='online';S.screen='game';S.busy=false;render();}});
-    hostConn.on('close',()=>{hostLost=true;render();});
-  });
-  peer.on('error',e=>{if(S.screen==='game'){hostLost=true;render();return;}
-    fail(e.type==='peer-unavailable'?'לא מצאתי חדר עם הקוד הזה':'שגיאת חיבור ('+e.type+')');});
+  isHost=false;myId=stablePid();S.busy=true;S.err='';net={g:null,voted:[],present:[]};render();
+  let found=false;
+  connect(()=>{client.subscribe(base(code)+'/state',{qos:1});heartbeat();});
+  client.on('message',(t,m)=>{let d;try{d=JSON.parse(m.toString());}catch(e){return;}
+    if(!d||!d.g){if(!found){S.busy=false;S.err='החדר הזה נסגר';leaveRoom(true);}return;}
+    if(!found&&d.ts&&Date.now()-d.ts>6*3600e3)return;
+    const prevRound=net.g&&net.g.round;found=true;net=d;S.lastState=Date.now();
+    if(S.screen!=='game'){S.mode='online';S.screen='game';S.busy=false;store.set('mb_join',{code,name:S.name,at:Date.now()});}
+    if(d.g.round!==prevRound){myExpose=null;}
+    if(!(d.present||[]).includes(myId)||(myVote&&d.g.phase==='vote'&&!(d.voted||[]).includes(myId)))heartbeat();
+    render();});
+  clearInterval(tick);tick=setInterval(()=>{if(client&&client.connected)heartbeat();render();},3000);
+  setTimeout(()=>{if(!found){S.busy=false;S.err='לא מצאתי חדר עם הקוד הזה';leaveRoom(true);}},9000);
 }
-function rejoin(){try{peer&&peer.destroy();}catch(e){}peer=null;net={g:null,voted:[],present:[]};hostLost=false;S.screen='home';joinRoom();}
-function leaveRoom(){try{peer&&peer.destroy();}catch(e){}peer=null;hostConn=null;conns={};votes={};isHost=false;G=null;net={g:null,voted:[],present:[]};hostLost=false;S.mode=null;S.screen='home';render();}
-function send(o){try{hostConn&&hostConn.open&&hostConn.send(o);}catch(e){}}
-
+function leaveRoom(keepErr){
+  clearInterval(tick);
+  if(isHost&&client){try{client.publish(base(code)+'/state','',{qos:1,retain:true});}catch(e){}store.del('mb_host');}
+  if(!isHost)store.del('mb_join');
+  const c=client;client=null;if(c)setTimeout(()=>{try{c.end(true);}catch(e){}},400);
+  isHost=false;G=null;votes={};lastSeen={};net={g:null,voted:[],present:[]};myVote=null;myExpose=null;S.mode=null;S.screen='home';if(!keepErr)S.err='';render();
+}
+const hostLost=false;
 /* ---------- actions ---------- */
 function toast(t){S.toast=t;render();setTimeout(()=>{S.toast='';render();},1600);}
 function copyText(t,ok){try{navigator.clipboard.writeText(t).then(()=>toast(ok)).catch(()=>toast('ההעתקה נחסמה'));}catch(e){toast('ההעתקה נחסמה');}}
@@ -192,24 +213,25 @@ function act(a,d){
   case 'gminus':U.guess=Math.max(0,U.guess-1);break;
   case 'submit':if(!U.sel)break;
     if(S.mode==='local'){L.votes[L.order[L.i]]={t:U.sel,g:U.guess};L.i++;L.show=false;if(L.i>=L.order.length)computeResult(G,L.order,L.votes);}
-    else{myVotedR=g.round;if(isHost){votes[myId]={t:U.sel,g:U.guess};hostUpdate();return;}send({type:'vote',r:g.round,t:U.sel,g:U.guess});}
+    else{myVotedR=g.round;if(isHost){votes[myId]={t:U.sel,g:U.guess};hostUpdate();return;}myVote={r:g.round,t:U.sel,g:U.guess};heartbeat();}
     break;
   case 'revealNow':if(host&&G.phase==='vote'){const pl=activeIds(G);computeResult(G,pl,votesFor(pl));hostUpdate();return;}break;
   case 'expose':
     if(S.mode==='local'){G.res.exposed={who:d.id,target:(L.votes[d.id]||{}).t||null};}
     else if(isHost){G.res.exposed={who:d.id,target:(votes[d.id]||{}).t||null};hostUpdate();return;}
-    else send({type:'expose',r:g.round,t:d.id});
+    else{myExpose={r:g.round,t:d.id};heartbeat();}
     break;
   case 'next':{if(G.round>=G.total)G.phase='end';else nextRound(G);
     if(S.mode==='local'){L.i=0;L.show=false;L.votes={};}else{votes={};hostUpdate();return;}break;}
   case 'again':if(S.mode==='local'){S.screen='localSetup';S.mode=null;G=null;}
     else if(isHost){const names={};activeIds(G).forEach(id=>names[id]=G.names[id]);G=newGame(G.vibe,G.total,names);votes={};hostUpdate();return;}break;
-  case 'create':if(!S.name.trim()){S.err='כתבו שם קודם';break;}createRoom(0);return;
+  case 'create':if(!S.name.trim()){S.err='כתבו שם קודם';break;}startHosting(null);return;
+  case 'resumeHost':{const r=store.get('mb_host');if(r)startHosting(r);return;}
+  case 'resumeJoin':{const r=store.get('mb_join');if(r){code=r.code;S.name=r.name||S.name;joinRoom();}return;}
   case 'join':{const c=S.joinCode.replace(/\D/g,'');if(!S.name.trim()){S.err='כתבו שם קודם';break;}if(c.length!==4){S.err='קוד החדר הוא 4 ספרות';break;}
     code=c;joinRoom();return;}
   case 'start':if(host&&activeIds(G).length>=3){startGame(G);votes={};hostUpdate();return;}break;
   case 'leave':leaveRoom();return;
-  case 'rejoin':rejoin();return;
   case 'shareLink':copyText(`בואו לשחק ״מי בינינו?״ 🎉 ${location.origin}${location.pathname}?r=${code}`,'הקישור הועתק, שלחו בוואטסאפ');return;
   case 'copy':copyText(`ב״מי בינינו?״ החברים שלי חושבים שאני: ${idText(g,d.id)} 😅`,'הועתק! אפשר להדביק בסטורי');return;
   }
@@ -217,6 +239,7 @@ function act(a,d){
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act(b.dataset.act,b.dataset);});
 document.addEventListener('input',e=>{const t=e.target;if(t.id==='name')S.name=t.value;else if(t.id==='jcode')S.joinCode=t.value;else if(t.dataset.ln!==undefined)S.localNames[+t.dataset.ln]=t.value;});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&client){if(isHost)hostUpdate(true);else heartbeat();}});
 
 /* ---------- views ---------- */
 const vibeChips=()=>`<div class="label">סגנון השאלות</div><div class="chips">${Object.entries(VIBES).map(([k,v])=>`<button class="chip ${S.vibe===k?'on':''}" data-act="vibe" data-v="${k}">${v.e} ${v.l}</button>`).join('')}</div>
@@ -224,11 +247,12 @@ const vibeChips=()=>`<div class="label">סגנון השאלות</div><div class=
 const rules=`<ol class="rules"><li>בכל סיבוב מופיעה שאלה, למשל ״מי הכי סביר שיפספס טיסה?״</li><li>כל אחד מצביע בסוד על מישהו.</li><li>מנחשים כמה קולות <b>אתם</b> תקבלו. ניחוש מדויק = 3 נק׳, קרוב באחד = 1, ועוד נקודה אם הצבעתם כמו הרוב.</li><li>כל סיבוב שלישי הוא סיבוב חשיפה 🔦: מי שקיבל הכי הרבה קולות בוחר מישהו שהבחירה שלו נחשפת, והוא צריך להסביר למה.</li></ol>`;
 
 function viewHome(){
-  const ok=typeof Peer!=='undefined';
+  const ok=typeof mqtt!=='undefined';const rh=store.get('mb_host'),rj=store.get('mb_join');const fresh=r=>r&&Date.now()-r.at<3*3600e3;
   const online=!ok?`<p class="err">לא הצלחתי לטעון את רכיב החיבור. בדקו אינטרנט ורעננו.</p>`:`<input id="name" placeholder="השם שלך" maxlength="12" value="${esc(S.name)}">
     ${S.joinCode&&S.fromLink?'':`<button class="btn pink" data-act="create" ${S.busy?'disabled':''}>${S.busy?'מתחבר…':'צור חדר חדש'}</button>`}
     <div class="row" style="margin-top:8px"><input id="jcode" inputmode="numeric" placeholder="קוד חדר (4 ספרות)" maxlength="4" value="${esc(S.joinCode)}"><button class="btn cyan" style="width:auto;padding:14px 20px;margin:0" data-act="join" ${S.busy?'disabled':''}>הצטרף</button></div>`;
   return `<h1>מי <span>בינינו?</span></h1><p class="sub">הצבעות סודיות על החברים שלכם</p>
+  ${fresh(rh)?`<button class="btn cyan" data-act="resumeHost">↩️ חזור לחדר ${esc(rh.code)} (מארח)</button>`:fresh(rj)?`<button class="btn cyan" data-act="resumeJoin">↩️ חזור לחדר ${esc(rj.code)}</button>`:''}
   <div class="card"><h2>🌐 כל אחד מהטלפון שלו</h2>${online}${S.err?`<div class="err">${esc(S.err)}</div>`:''}</div>
   <div class="card"><h2>📱 טלפון אחד</h2><p class="small">מעבירים את הטלפון מיד ליד</p><button class="btn" data-act="localSetup">שחקו בטלפון אחד</button></div>
   <div class="card"><h2>איך משחקים</h2>${rules}</div>`;
@@ -277,16 +301,19 @@ function endUI(g){
 function viewGame(){
   const g=curG();
   if(S.mode==='online'){
-    if(!isHost&&hostLost)return `<div class="card center"><h2>החיבור למארח נותק 😕</h2><p class="small">אולי המסך שלו כבה או שהוא יצא. נסו להתחבר שוב.</p><button class="btn pink" data-act="rejoin">התחבר שוב</button></div><button class="btn ghost" data-act="leave">יציאה</button>`;
     if(!g)return `<div class="card center"><h2>מתחבר…</h2></div>`;
-    const me=myId;
+    const me=myId;const banner=S.offline?`<div class="err center">📡 מתחבר מחדש…</div>`:(!isHost&&S.lastState&&Date.now()-S.lastState>20000&&g.phase!=='end')?`<div class="err center">⏳ המארח לא מגיב. אולי המסך שלו כבה.</div>`:'';
+    return banner+viewOnline(g,me);}
+  return viewLocal(g);
+}
+function viewOnline(g,me){{
     if(g.phase==='lobby'){const ids=activeIds(g);
       return `<div class="center label">קוד החדר</div><div class="code">${esc(code)}</div>
-      ${isHost?`<button class="btn cyan" data-act="shareLink">📤 העתק קישור הזמנה</button><p class="small center">⚠️ אל תנעל את המסך ואל תצא מהדפדפן. הטלפון שלך הוא השרת של המשחק.</p>`:''}
+      ${isHost?`<button class="btn cyan" data-act="shareLink">📤 העתק קישור הזמנה</button><p class="small center">💡 עדיף להשאיר את המסך דלוק. אם יצאת לשנייה לוואטסאפ, המשחק ממשיך כשחוזרים.</p>`:''}
       <div class="card"><h2>שחקנים (${ids.length})</h2><div class="plist">${ids.map(id=>`<span class="ptag">${esc(nm(g,id))}${id===me?' (אני)':''}</span>`).join('')||'<span class="small">עדיין אף אחד…</span>'}</div></div>
       ${isHost?`<div class="card">${vibeChips()}</div><button class="btn pink" data-act="start" ${ids.length>=3?'':'disabled'}>${ids.length>=3?'התחל משחק':'צריך לפחות 3 שחקנים'}</button>`:`<div class="card center">${VIBES[g.vibe].e} ${VIBES[g.vibe].l} · ${g.total} סיבובים<p class="small">מחכים שהמארח יתחיל…</p></div>`}
       <button class="btn ghost" data-act="leave">יציאה</button>`;}
-    if(!g.names[me]&&g.phase!=='end')return `<div class="card center"><h2>החדר מלא או שהמשחק כבר רץ</h2></div><button class="btn ghost" data-act="leave">יציאה</button>`;
+    if(!g.names[me]&&g.phase!=='end')return `<div class="card center"><h2>${Object.keys(g.names).length>=10?'החדר מלא (10 שחקנים)':'מצטרף לחדר…'}</h2></div><button class="btn ghost" data-act="leave">יציאה</button>`;
     if(g.phase==='vote'){const ids=activeIds(g);const done=votedThisRound(me)||myVotedR===g.round;
       let h=qHeader(g);
       if(!done)h+=voteUI(g,ids,me);
@@ -295,8 +322,8 @@ function viewGame(){
       return h;}
     if(g.phase==='reveal')return revealUI(g,me,isHost);
     return endUI(g);
-  }
-  // local
+  }}
+function viewLocal(g){
   if(g.phase==='vote'){const id=L.order[L.i];
     if(!L.show)return `<div class="top"><span>סיבוב ${g.round}/${g.total}</span><span>${L.i+1}/${L.order.length}</span></div><div class="card pass"><div class="emoji">📱</div><h2>תעבירו את הטלפון ל־${esc(nm(g,id))}</h2><p class="small">ושאף אחד אחר לא יציץ 👀</p><button class="btn pink" data-act="showMe">אני ${esc(nm(g,id))}, יאללה</button></div>`;
     return qHeader(g)+voteUI(g,L.order,id);}
