@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta property="og:title" content="מי בינינו? 🎉">
+<meta property="og:description" content="משחק הצבעות סודיות על החברים שלכם">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>מי בינינו?</title>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#140a2e;--card:#21134a;--card2:#2c1a5e;--line:#4a3590;--pink:#ff4fa3;--yellow:#ffd23f;--cyan:#3fe0ff;--green:#4dff9a;--text:#fff;--mut:#b9a9e6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 15% 0%,#3a1a7a 0,transparent 55%),radial-gradient(circle at 100% 100%,#5a1050 0,transparent 50%),var(--bg);background-attachment:fixed;color:var(--text);font-family:Rubik,system-ui,sans-serif}
+body{padding:calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 28px)}
+#app{max-width:480px;margin:0 auto}
+h1{font-size:46px;font-weight:900;margin:22px 0 2px;text-align:center;letter-spacing:-1px}
+h1 span{color:var(--pink)}
+h2{font-size:22px;margin:4px 0 10px}
+.sub{color:var(--mut);text-align:center;margin:0 0 18px}
+.card{background:var(--card);border-radius:20px;padding:18px;margin:12px 0;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.btn{display:block;width:100%;border:0;border-radius:16px;padding:16px;font:inherit;font-weight:800;font-size:18px;cursor:pointer;margin:10px 0 0;color:#1a0b33;background:var(--yellow);transition:transform .08s}
+.btn:active{transform:scale(.97)}
+.btn.pink{background:var(--pink);color:#fff}
+.btn.cyan{background:var(--cyan)}
+.btn.ghost{background:transparent;color:var(--text);border:2px solid var(--line)}
+.btn:disabled{opacity:.35}
+input{width:100%;padding:14px;border-radius:14px;border:2px solid var(--line);background:#170d38;color:#fff;font:inherit;font-size:17px;margin:6px 0;outline:none}
+input:focus{border-color:var(--pink)}
+.row{display:flex;gap:8px;align-items:center}
+.row input{flex:1}
+.x{width:44px;height:44px;flex:none;border-radius:12px;border:0;background:var(--card2);color:#fff;font-size:20px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.chip{border:2px solid var(--line);background:transparent;color:#fff;border-radius:999px;padding:9px 14px;font:inherit;font-weight:600;font-size:15px;cursor:pointer}
+.chip.on{background:var(--pink);border-color:var(--pink)}
+.q{font-size:26px;font-weight:800;line-height:1.3;text-align:center;margin:6px 0}
+.label{color:var(--mut);font-size:14px;margin:6px 0 8px}
+.top{display:flex;justify-content:space-between;color:var(--mut);font-size:14px;font-weight:600}
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pbtn{border:2px solid var(--line);background:var(--card2);color:#fff;border-radius:14px;padding:14px 8px;font:inherit;font-weight:700;font-size:16px;cursor:pointer}
+.pbtn.on{background:var(--cyan);color:#1a0b33;border-color:var(--cyan)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:18px}
+.stepper button{width:56px;height:56px;border-radius:50%;border:0;background:var(--card2);color:#fff;font-size:28px;font-weight:800;cursor:pointer}
+.big{font-size:48px;font-weight:900;min-width:60px;text-align:center}
+.bar{position:relative;background:var(--card2);border-radius:12px;padding:11px 12px;margin:7px 0;overflow:hidden}
+.bar .fill{position:absolute;top:0;bottom:0;right:0;background:linear-gradient(270deg,var(--pink),#a33bff);opacity:.6;transition:width .6s}
+.bar .in{position:relative;display:flex;justify-content:space-between;font-weight:700}
+.bar .meta{position:relative;font-size:13px;color:#e6dcff;margin-top:2px}
+.small{font-size:13px;color:var(--mut);margin:4px 0 0}
+.pts{color:var(--green);font-weight:800}
+.code{font-size:60px;font-weight:900;letter-spacing:10px;text-align:center;color:var(--yellow);direction:ltr;margin:4px 0}
+.plist{display:flex;flex-wrap:wrap;gap:8px}
+.ptag{background:var(--card2);border-radius:999px;padding:8px 12px;font-weight:600}
+.ptag.done{background:#1d6b47}
+.idcard{background:linear-gradient(135deg,#ff4fa3,#7a3bff);border-radius:20px;padding:16px 18px;margin:12px 0}
+.idcard h3{margin:0 0 4px;font-size:21px}
+.idcard p{margin:0 0 10px;font-size:17px;font-weight:600}
+.idcard button{border:0;border-radius:12px;padding:9px 14px;font:inherit;font-weight:700;background:rgba(255,255,255,.9);color:#3a1470;cursor:pointer}
+.expose{background:linear-gradient(135deg,#ffd23f,#ff8a3f);color:#1a0b33;border-radius:20px;padding:16px;margin:12px 0}
+.expose .pbtn{background:rgba(255,255,255,.35);color:#1a0b33;border-color:rgba(0,0,0,.15)}
+.center{text-align:center}
+.err{color:#ff9a9a;font-size:14px;margin-top:8px}
+table{width:100%;border-collapse:collapse}
+td{padding:9px 4px;border-bottom:1px solid #35236e;font-weight:600}
+td:last-child{text-align:left}
+.pass{text-align:center;padding:30px 18px}
+.pass .emoji{font-size:64px}
+.rules li{margin:4px 0;color:#e6dcff}
+.rules{padding-right:18px;margin:6px 0}
+.toast{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 20px);left:50%;transform:translateX(-50%);background:var(--green);color:#0b2a18;font-weight:800;padding:10px 18px;border-radius:999px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const TRAITS={chaos:'כאוס',mom:'אמא של החבורה',drama:'דרמה',brain:'מוח',lazy:'עצלנות',wild:'הרפתקנות',heart:'לב רך',survivor:'שרידות'};
+const VIBES={
+friends:{l:'חברים',e:'🍻',q:[
+['מי הכי סביר שיפספס טיסה?','chaos'],['מי ישרוד הכי הרבה זמן באי בודד?','survivor'],['מי הראשון שמתקשרים אליו כשיש בעיה?','mom'],['מי יתחתן ראשון?','heart'],['מי יכול לישון 14 שעות ברצף?','lazy'],['מי הכי סביר שיהפוך למיליונר?','brain'],['מי יחזור מטיול בחו״ל עם סיפור שאף אחד לא מאמין לו?','wild'],['מי עושה הכי הרבה דרמה מדבר קטן?','drama'],['מי ישכח יום הולדת של חבר טוב?','chaos'],['מי תמיד מביא אוכל לכולם?','mom'],['מי יצליח לברוח מכלא?','survivor'],['מי בוכה בסרטים מצוירים?','heart'],['מי יקפוץ ראשון לצניחה חופשית?','wild'],['מי ינצח בחידון טריוויה?','brain'],['מי עונה להודעות אחרי שלושה ימים?','lazy'],['מי מעלה סטורי על כל דבר?','drama']]},
+party:{l:'מסיבה',e:'🎉',q:[
+['מי יהיה האחרון שנשאר על הרחבה?','wild'],['מי יאבד את הטלפון הערב?','chaos'],['מי ישכנע את הדי-ג׳יי לשים את השיר שלו?','drama'],['מי ידאג שכולם יגיעו הביתה בשלום?','mom'],['מי יירדם ראשון על הספה?','lazy'],['מי יתחיל ויכוח על שטות?','drama'],['מי יכיר הכי הרבה אנשים חדשים?','wild'],['מי יזמין פיצה ב-4 לפנות בוקר?','chaos'],['מי ינצח בכל משחק קלפים?','brain'],['מי ישלח הודעה שהוא יתחרט עליה מחר?','heart'],['מי ישרוד את כל הלילה בלי לישון?','survivor'],['מי רוקד הכי גרוע ונהנה הכי הרבה?','wild'],['מי יגיע באיחור של שעתיים?','lazy'],['מי יזכור מחר הכל ויספר לכולם?','brain']]},
+family:{l:'משפחה',e:'🏠',q:[
+['מי מתקשר לאמא כל יום?','heart'],['מי אוכל את השאריות מהמקרר בלילה?','lazy'],['מי מתווכח הכי הרבה בארוחות שישי?','drama'],['מי מארגן את כל האירועים המשפחתיים?','mom'],['מי ישכח את המפתחות בתוך האוטו?','chaos'],['מי מתקן כל דבר שמתקלקל בבית?','brain'],['מי יעבור לגור בחו״ל?','wild'],['מי ישרוד שבוע בלי אינטרנט?','survivor'],['מי נרדם מול הטלוויזיה כל ערב?','lazy'],['מי יודע את כל הרכילות במשפחה?','drama'],['מי ינצח בוויכוח עם סבתא?','brain'],['מי נותן את המתנות הכי מושקעות?','heart'],['מי יאחר לחתונה של עצמו?','chaos'],['מי ייצא לטרק במדבר ברגע האחרון?','wild']]},
+work:{l:'עבודה',e:'💼',q:[
+['מי ישלח ״השב לכולם״ בטעות?','chaos'],['מי יהיה המנכ״ל בעוד 10 שנים?','brain'],['מי מביא עוגה לכל יום הולדת?','mom'],['מי עושה מכל מייל דרמה?','drama'],['מי מתחבא בשירותים כדי לגלול בטלפון?','lazy'],['מי ישרוד כל סבב פיטורים?','survivor'],['מי יתפטר ויפתח מסעדה?','wild'],['מי זוכר את השמות של הילדים של כולם?','heart'],['מי מגיע לפגישה בלי לדעת על מה היא?','chaos'],['מי פותר בעיה שכולם נתקעו בה?','brain'],['מי ישאיר אוכל במקרר המשרדי חודשיים?','lazy'],['מי סוחב את כולם על הגב לפני דדליין?','survivor'],['מי נלחם על כל דבר בישיבות?','drama'],['מי ייצא לשנת שבתון סביב העולם?','wild']]}
+};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const app=document.getElementById('app');
+
+const S={screen:'home',mode:null,name:'',joinCode:'',err:'',busy:false,localNames:['','',''],vibe:'friends',total:10,toast:''};
+let U={key:'',sel:null,guess:0};
+let G=null;           // local game, or host's authoritative game
+let L=null;           // local pass-the-phone state
+// online
+let peer=null,isHost=false,code='',conns={},hostConn=null,myId=null,net={g:null,voted:[],present:[]},hostLost=false,myVotedR=-1;
+try{const r=new URLSearchParams(location.search).get('r');if(r&&/^\d{4}$/.test(r)){S.joinCode=r;S.fromLink=true;}}catch(e){}
+
+
+/* ---------- game engine (shared) ---------- */
+function newGame(vibe,total,names){return{phase:'lobby',vibe,total,round:0,q:-1,used:[],names:names||{},scores:{},traits:{},res:null};}
+function startGame(g){g.scores={};g.traits={};g.round=0;g.used=[];Object.keys(g.names).forEach(id=>g.scores[id]=0);nextRound(g);}
+function nextRound(g){const bank=VIBES[g.vibe].q;let pool=bank.map((_,i)=>i).filter(i=>!g.used.includes(i));if(!pool.length){g.used=[];pool=bank.map((_,i)=>i);}const q=pool[Math.floor(Math.random()*pool.length)];g.used.push(q);g.q=q;g.round++;g.phase='vote';g.res=null;}
+function computeResult(g,players,votes){
+  const tally={};players.forEach(p=>tally[p]=0);
+  players.forEach(p=>{const v=votes[p];if(v&&tally[v.t]!==undefined)tally[v.t]++;});
+  const max=Math.max(0,...Object.values(tally));
+  const tops=players.filter(p=>max>0&&tally[p]===max);
+  const pts={},guesses={};
+  players.forEach(p=>{const v=votes[p];let s=0;if(v){guesses[p]=v.g;const d=Math.abs(v.g-tally[p]);s+=d===0?3:d===1?1:0;if(tops.includes(v.t))s+=1;}pts[p]=s;g.scores[p]=(g.scores[p]||0)+s;});
+  const trait=VIBES[g.vibe].q[g.q][1];
+  players.forEach(p=>{if(tally[p]>0){g.traits[p]=g.traits[p]||{};g.traits[p][trait]=(g.traits[p][trait]||0)+tally[p];}});
+  g.res={r:g.round,tally,pts,guesses,top:tops[0]||null,expose:g.round%3===0&&!!tops[0],exposed:null};
+  g.phase='reveal';
+}
+function idText(g,id){const t=g.traits[id]||{};const tot=Object.values(t).reduce((a,b)=>a+b,0);if(!tot)return'מסתורי לגמרי. אף אחד לא הצביע עליו 🤫';
+  return Object.entries(t).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,n])=>`${Math.round(n/tot*100)}% ${TRAITS[k]}`).join(' · ');}
+const nm=(g,id)=>(g&&g.names&&g.names[id])||'?';
+
+/* ---------- online (PeerJS: host phone is the server) ---------- */
+let votes={};          // host only: id -> {t,g} for current round
+const presentIds=()=>[myId,...Object.keys(conns).filter(id=>conns[id]&&conns[id].open)];
+function curG(){if(S.mode==='local'||isHost)return G;return net.g;}
+function activeIds(g){const pres=isHost?presentIds():(net.present||[]);return Object.keys(g.names).filter(id=>pres.includes(id));}
+function votedThisRound(id){return isHost?!!votes[id]:(net.voted||[]).includes(id);}
+function votesFor(pl){const o={};pl.forEach(id=>{if(votes[id])o[id]=votes[id];});return o;}
+const cleanName=n=>String(n||'').replace(/[\u0000-\u001f]/g,'').trim().slice(0,12)||'שחקן';
+function stablePid(){const mk=()=>'mbp-'+Math.random().toString(36).slice(2,12);try{let v=sessionStorage.getItem('mb_pid');if(!v){v=mk();sessionStorage.setItem('mb_pid',v);}return v;}catch(e){return mk();}}
+function hostUpdate(){
+  if(!G)return;const pres=presentIds();
+  if(G.phase==='lobby')Object.keys(G.names).forEach(id=>{if(!pres.includes(id))delete G.names[id];});
+  if(G.phase==='vote'){const pl=pres.filter(id=>G.names[id]);if(pl.length>=2&&pl.every(id=>votes[id]))computeResult(G,pl,votesFor(pl));}
+  const msg={type:'state',g:G,voted:Object.keys(votes),present:pres};
+  Object.values(conns).forEach(c=>{try{c.open&&c.send(msg);}catch(e){}});
+  render();
+}
+function onHostData(c,d){
+  if(!d||typeof d!=='object')return;
+  if(d.type==='hello'){conns[c.peer]=c;const known=!!G.names[c.peer];
+    if(known||Object.keys(G.names).length<10){G.names[c.peer]=cleanName(d.name);if(G.phase!=='lobby')G.scores[c.peer]=G.scores[c.peer]||0;}
+    hostUpdate();}
+  else if(d.type==='vote'){if(G.phase==='vote'&&d.r===G.round&&G.names[c.peer]&&G.names[d.t]&&Number.isFinite(d.g)){votes[c.peer]={t:d.t,g:Math.max(0,Math.min(20,Math.round(d.g)))};hostUpdate();}}
+  else if(d.type==='expose'){if(G.phase==='reveal'&&G.res&&G.res.expose&&!G.res.exposed&&c.peer===G.res.top&&d.r===G.round&&G.names[d.t]){G.res.exposed={who:d.t,target:(votes[d.t]||{}).t||null};hostUpdate();}}
+}
+function createRoom(tries){
+  tries=tries||0;S.busy=true;S.err='';render();
+  code=String(Math.floor(1000+Math.random()*9000));
+  peer=new Peer('mibeinenu-'+code);
+  peer.on('open',id=>{myId=id;isHost=true;conns={};votes={};G=newGame(S.vibe,S.total,{[id]:cleanName(S.name)});S.mode='online';S.screen='game';S.busy=false;hostUpdate();});
+  peer.on('connection',c=>{c.on('data',d=>onHostData(c,d));c.on('close',()=>{if(conns[c.peer]===c)delete conns[c.peer];hostUpdate();});c.on('error',()=>{});});
+  peer.on('disconnected',()=>{try{peer.reconnect();}catch(e){}});
+  peer.on('error',e=>{if(e.type==='unavailable-id'&&tries<5){try{peer.destroy();}catch(_){}createRoom(tries+1);return;}
+    if(S.screen==='game'&&isHost)return; S.busy=false;S.err='שגיאת חיבור ('+e.type+'). נסו שוב.';render();});
+}
+function joinRoom(){
+  S.busy=true;S.err='';render();
+  peer=new Peer(stablePid());
+  let timer=null;
+  const fail=msg=>{clearTimeout(timer);S.busy=false;S.err=msg;try{peer.destroy();}catch(e){}peer=null;render();};
+  peer.on('open',id=>{myId=id;
+    hostConn=peer.connect('mibeinenu-'+code,{reliable:true});
+    timer=setTimeout(()=>{if(!net.g)fail('לא מצאתי חדר עם הקוד הזה');},10000);
+    hostConn.on('open',()=>hostConn.send({type:'hello',name:cleanName(S.name)}));
+    hostConn.on('data',d=>{if(d&&d.type==='state'&&d.g){clearTimeout(timer);net=d;hostLost=false;S.mode='online';S.screen='game';S.busy=false;render();}});
+    hostConn.on('close',()=>{hostLost=true;render();});
+  });
+  peer.on('error',e=>{if(S.screen==='game'){hostLost=true;render();return;}
+    fail(e.type==='peer-unavailable'?'לא מצאתי חדר עם הקוד הזה':'שגיאת חיבור ('+e.type+')');});
+}
+function rejoin(){try{peer&&peer.destroy();}catch(e){}peer=null;net={g:null,voted:[],present:[]};hostLost=false;S.screen='home';joinRoom();}
+function leaveRoom(){try{peer&&peer.destroy();}catch(e){}peer=null;hostConn=null;conns={};votes={};isHost=false;G=null;net={g:null,voted:[],present:[]};hostLost=false;S.mode=null;S.screen='home';render();}
+function send(o){try{hostConn&&hostConn.open&&hostConn.send(o);}catch(e){}}
+
+/* ---------- actions ---------- */
+function toast(t){S.toast=t;render();setTimeout(()=>{S.toast='';render();},1600);}
+function copyText(t,ok){try{navigator.clipboard.writeText(t).then(()=>toast(ok)).catch(()=>toast('ההעתקה נחסמה'));}catch(e){toast('ההעתקה נחסמה');}}
+function act(a,d){
+  const g=curG();const host=S.mode==='online'&&isHost;
+  switch(a){
+  case 'localSetup':S.screen='localSetup';S.err='';break;
+  case 'home':S.screen='home';S.mode=null;break;
+  case 'addName':if(S.localNames.length<10)S.localNames.push('');break;
+  case 'rmName':S.localNames.splice(+d.i,1);break;
+  case 'vibe':S.vibe=d.v;if(host&&G.phase==='lobby'){G.vibe=d.v;hostUpdate();return;}break;
+  case 'total':S.total=+d.n;if(host&&G.phase==='lobby'){G.total=+d.n;hostUpdate();return;}break;
+  case 'localStart':{const names=S.localNames.map(s=>s.trim().slice(0,12)).filter(Boolean);
+    if(names.length<3){S.err='צריך לפחות 3 שחקנים';break;}
+    const map={};names.forEach((n,i)=>map['p'+i]=n);G=newGame(S.vibe,S.total,map);startGame(G);
+    L={order:Object.keys(map),i:0,show:false,votes:{}};S.mode='local';S.screen='game';S.err='';break;}
+  case 'showMe':L.show=true;break;
+  case 'sel':U.sel=d.id;break;
+  case 'gplus':U.guess=Math.min(U.guess+1,Object.keys(g.names).length);break;
+  case 'gminus':U.guess=Math.max(0,U.guess-1);break;
+  case 'submit':if(!U.sel)break;
+    if(S.mode==='local'){L.votes[L.order[L.i]]={t:U.sel,g:U.guess};L.i++;L.show=false;if(L.i>=L.order.length)computeResult(G,L.order,L.votes);}
+    else{myVotedR=g.round;if(isHost){votes[myId]={t:U.sel,g:U.guess};hostUpdate();return;}send({type:'vote',r:g.round,t:U.sel,g:U.guess});}
+    break;
+  case 'revealNow':if(host&&G.phase==='vote'){const pl=activeIds(G);computeResult(G,pl,votesFor(pl));hostUpdate();return;}break;
+  case 'expose':
+    if(S.mode==='local'){G.res.exposed={who:d.id,target:(L.votes[d.id]||{}).t||null};}
+    else if(isHost){G.res.exposed={who:d.id,target:(votes[d.id]||{}).t||null};hostUpdate();return;}
+    else send({type:'expose',r:g.round,t:d.id});
+    break;
+  case 'next':{if(G.round>=G.total)G.phase='end';else nextRound(G);
+    if(S.mode==='local'){L.i=0;L.show=false;L.votes={};}else{votes={};hostUpdate();return;}break;}
+  case 'again':if(S.mode==='local'){S.screen='localSetup';S.mode=null;G=null;}
+    else if(isHost){const names={};activeIds(G).forEach(id=>names[id]=G.names[id]);G=newGame(G.vibe,G.total,names);votes={};hostUpdate();return;}break;
+  case 'create':if(!S.name.trim()){S.err='כתבו שם קודם';break;}createRoom(0);return;
+  case 'join':{const c=S.joinCode.replace(/\D/g,'');if(!S.name.trim()){S.err='כתבו שם קודם';break;}if(c.length!==4){S.err='קוד החדר הוא 4 ספרות';break;}
+    code=c;joinRoom();return;}
+  case 'start':if(host&&activeIds(G).length>=3){startGame(G);votes={};hostUpdate();return;}break;
+  case 'leave':leaveRoom();return;
+  case 'rejoin':rejoin();return;
+  case 'shareLink':copyText(`בואו לשחק ״מי בינינו?״ 🎉 ${location.origin}${location.pathname}?r=${code}`,'הקישור הועתק, שלחו בוואטסאפ');return;
+  case 'copy':copyText(`ב״מי בינינו?״ החברים שלי חושבים שאני: ${idText(g,d.id)} 😅`,'הועתק! אפשר להדביק בסטורי');return;
+  }
+  render();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act(b.dataset.act,b.dataset);});
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='name')S.name=t.value;else if(t.id==='jcode')S.joinCode=t.value;else if(t.dataset.ln!==undefined)S.localNames[+t.dataset.ln]=t.value;});
+
+/* ---------- views ---------- */
+const vibeChips=()=>`<div class="label">סגנון השאלות</div><div class="chips">${Object.entries(VIBES).map(([k,v])=>`<button class="chip ${S.vibe===k?'on':''}" data-act="vibe" data-v="${k}">${v.e} ${v.l}</button>`).join('')}</div>
+<div class="label">כמה סיבובים</div><div class="chips">${[5,10,15].map(n=>`<button class="chip ${S.total===n?'on':''}" data-act="total" data-n="${n}">${n}</button>`).join('')}</div>`;
+const rules=`<ol class="rules"><li>בכל סיבוב מופיעה שאלה, למשל ״מי הכי סביר שיפספס טיסה?״</li><li>כל אחד מצביע בסוד על מישהו.</li><li>מנחשים כמה קולות <b>אתם</b> תקבלו. ניחוש מדויק = 3 נק׳, קרוב באחד = 1, ועוד נקודה אם הצבעתם כמו הרוב.</li><li>כל סיבוב שלישי הוא סיבוב חשיפה 🔦: מי שקיבל הכי הרבה קולות בוחר מישהו שהבחירה שלו נחשפת, והוא צריך להסביר למה.</li></ol>`;
+
+function viewHome(){
+  const ok=typeof Peer!=='undefined';
+  const online=!ok?`<p class="err">לא הצלחתי לטעון את רכיב החיבור. בדקו אינטרנט ורעננו.</p>`:`<input id="name" placeholder="השם שלך" maxlength="12" value="${esc(S.name)}">
+    ${S.joinCode&&S.fromLink?'':`<button class="btn pink" data-act="create" ${S.busy?'disabled':''}>${S.busy?'מתחבר…':'צור חדר חדש'}</button>`}
+    <div class="row" style="margin-top:8px"><input id="jcode" inputmode="numeric" placeholder="קוד חדר (4 ספרות)" maxlength="4" value="${esc(S.joinCode)}"><button class="btn cyan" style="width:auto;padding:14px 20px;margin:0" data-act="join" ${S.busy?'disabled':''}>הצטרף</button></div>`;
+  return `<h1>מי <span>בינינו?</span></h1><p class="sub">הצבעות סודיות על החברים שלכם</p>
+  <div class="card"><h2>🌐 כל אחד מהטלפון שלו</h2>${online}${S.err?`<div class="err">${esc(S.err)}</div>`:''}</div>
+  <div class="card"><h2>📱 טלפון אחד</h2><p class="small">מעבירים את הטלפון מיד ליד</p><button class="btn" data-act="localSetup">שחקו בטלפון אחד</button></div>
+  <div class="card"><h2>איך משחקים</h2>${rules}</div>`;
+}
+function viewLocalSetup(){
+  return `<h1 style="font-size:34px">מי <span>בינינו?</span></h1>
+  <div class="card"><h2>מי משחק?</h2>${S.localNames.map((n,i)=>`<div class="row"><input id="ln${i}" data-ln="${i}" placeholder="שחקן ${i+1}" maxlength="12" value="${esc(n)}">${S.localNames.length>3?`<button class="x" data-act="rmName" data-i="${i}">×</button>`:''}</div>`).join('')}
+  ${S.localNames.length<10?`<button class="btn ghost" data-act="addName">+ הוסף שחקן</button>`:''}</div>
+  <div class="card">${vibeChips()}</div>
+  ${S.err?`<div class="err center">${esc(S.err)}</div>`:''}
+  <button class="btn pink" data-act="localStart">יאללה מתחילים</button><button class="btn ghost" data-act="home">חזרה</button>`;
+}
+function qHeader(g){const v=VIBES[g.vibe];return `<div class="top"><span>סיבוב ${g.round}/${g.total}${g.round%3===0?' · 🔦 חשיפה':''}</span><span>${v.e} ${v.l}</span></div><div class="card"><div class="q">${esc(v.q[g.q][0])}</div></div>`;}
+function voteUI(g,ids,me){
+  const key=(S.mode||'')+g.round+'-'+me;if(U.key!==key)U={key,sel:null,guess:0};
+  return `<div class="card"><div class="label">על מי אתה מצביע? (בסוד 🤫)</div><div class="pgrid">${ids.map(id=>`<button class="pbtn ${U.sel===id?'on':''}" data-act="sel" data-id="${esc(id)}">${esc(nm(g,id))}${id===me?' (אני)':''}</button>`).join('')}</div>
+  <div class="label" style="margin-top:18px">כמה קולות <b>אתה</b> חושב שתקבל?</div>
+  <div class="stepper"><button data-act="gminus">−</button><div class="big">${U.guess}</div><button data-act="gplus">+</button></div>
+  <button class="btn pink" data-act="submit" ${U.sel?'':'disabled'}>שלח הצבעה</button></div>`;
+}
+function scoreTable(g){const ids=Object.keys(g.names).sort((a,b)=>(g.scores[b]||0)-(g.scores[a]||0));
+  return `<div class="card"><h2>טבלה</h2><table>${ids.map((id,i)=>`<tr><td>${i===0?'👑 ':''}${esc(nm(g,id))}</td><td>${g.scores[id]||0}</td></tr>`).join('')}</table></div>`;}
+function revealUI(g,me,canNext){
+  const r=g.res;const ids=Object.keys(r.tally).sort((a,b)=>r.tally[b]-r.tally[a]);const max=Math.max(1,...Object.values(r.tally));
+  let h=qHeader(g)+`<div class="card"><h2>התוצאות</h2>${ids.map(id=>`<div class="bar"><div class="fill" style="width:${r.tally[id]/max*100}%"></div><div class="in"><span>${esc(nm(g,id))}${id===me&&S.mode==='online'?' (אני)':''}</span><span>${r.tally[id]} קולות</span></div><div class="meta">${r.guesses[id]!==undefined?`ניחש ${r.guesses[id]}`:'לא הצביע'} · <span class="pts">+${r.pts[id]||0}</span></div></div>`).join('')}</div>`;
+  if(r.expose){
+    h+=`<div class="expose"><h2>🔦 סיבוב חשיפה!</h2>`;
+    if(r.exposed){h+=r.exposed.target?`<div class="q" style="font-size:22px">${esc(nm(g,r.exposed.who))} הצביע על <u>${esc(nm(g,r.exposed.target))}</u>!</div><p class="center" style="margin:6px 0 0;font-weight:600">עכשיו תסביר למה 😏</p>`:`<p>${esc(nm(g,r.exposed.who))} בכלל לא הצביע בסיבוב הזה 🙈</p>`;}
+    else if(S.mode==='local'||me===r.top){h+=`<p style="margin:0 0 10px;font-weight:600">${esc(nm(g,r.top))}, קיבלת הכי הרבה קולות. תבחר את מי לחשוף:</p><div class="pgrid">${Object.keys(r.tally).filter(id=>id!==r.top).map(id=>`<button class="pbtn" data-act="expose" data-id="${esc(id)}">${esc(nm(g,id))}</button>`).join('')}</div>`;}
+    else h+=`<p style="margin:0;font-weight:600">${esc(nm(g,r.top))} בוחר את מי לחשוף…</p>`;
+    h+=`</div>`;
+  }
+  h+=scoreTable(g);
+  h+=canNext?`<button class="btn pink" data-act="next">${g.round>=g.total?'לתוצאות הסופיות 🏆':'סיבוב הבא ←'}</button>`:`<p class="small center">מחכים למארח שימשיך…</p>`;
+  return h;
+}
+function endUI(g){
+  const ids=Object.keys(g.names).sort((a,b)=>(g.scores[b]||0)-(g.scores[a]||0));
+  let h=`<h1 style="font-size:34px">🏆 ${esc(nm(g,ids[0]))} ניצח!</h1><p class="sub">ככה החברים שלכם רואים אתכם</p>`;
+  h+=ids.map(id=>`<div class="idcard"><h3>${esc(nm(g,id))}</h3><p>${esc(idText(g,id))}</p><button data-act="copy" data-id="${esc(id)}">📋 העתק לשיתוף</button></div>`).join('');
+  h+=scoreTable(g);
+  if(S.mode==='local')h+=`<button class="btn pink" data-act="again">משחק חדש</button><button class="btn ghost" data-act="home">לדף הבית</button>`;
+  else h+=(isHost?`<button class="btn pink" data-act="again">משחק חדש באותו חדר</button>`:'')+`<button class="btn ghost" data-act="leave">יציאה</button>`;
+  return h;
+}
+function viewGame(){
+  const g=curG();
+  if(S.mode==='online'){
+    if(!isHost&&hostLost)return `<div class="card center"><h2>החיבור למארח נותק 😕</h2><p class="small">אולי המסך שלו כבה או שהוא יצא. נסו להתחבר שוב.</p><button class="btn pink" data-act="rejoin">התחבר שוב</button></div><button class="btn ghost" data-act="leave">יציאה</button>`;
+    if(!g)return `<div class="card center"><h2>מתחבר…</h2></div>`;
+    const me=myId;
+    if(g.phase==='lobby'){const ids=activeIds(g);
+      return `<div class="center label">קוד החדר</div><div class="code">${esc(code)}</div>
+      ${isHost?`<button class="btn cyan" data-act="shareLink">📤 העתק קישור הזמנה</button><p class="small center">⚠️ אל תנעל את המסך ואל תצא מהדפדפן. הטלפון שלך הוא השרת של המשחק.</p>`:''}
+      <div class="card"><h2>שחקנים (${ids.length})</h2><div class="plist">${ids.map(id=>`<span class="ptag">${esc(nm(g,id))}${id===me?' (אני)':''}</span>`).join('')||'<span class="small">עדיין אף אחד…</span>'}</div></div>
+      ${isHost?`<div class="card">${vibeChips()}</div><button class="btn pink" data-act="start" ${ids.length>=3?'':'disabled'}>${ids.length>=3?'התחל משחק':'צריך לפחות 3 שחקנים'}</button>`:`<div class="card center">${VIBES[g.vibe].e} ${VIBES[g.vibe].l} · ${g.total} סיבובים<p class="small">מחכים שהמארח יתחיל…</p></div>`}
+      <button class="btn ghost" data-act="leave">יציאה</button>`;}
+    if(!g.names[me]&&g.phase!=='end')return `<div class="card center"><h2>החדר מלא או שהמשחק כבר רץ</h2></div><button class="btn ghost" data-act="leave">יציאה</button>`;
+    if(g.phase==='vote'){const ids=activeIds(g);const done=votedThisRound(me)||myVotedR===g.round;
+      let h=qHeader(g);
+      if(!done)h+=voteUI(g,ids,me);
+      else h+=`<div class="card"><h2>ההצבעה נשלחה ✅</h2><div class="label">מחכים ל…</div><div class="plist">${ids.map(id=>`<span class="ptag ${votedThisRound(id)?'done':''}">${esc(nm(g,id))}${votedThisRound(id)?' ✓':''}</span>`).join('')}</div></div>`;
+      if(isHost){const n=ids.filter(id=>votedThisRound(id)).length;if(n>=2&&n<ids.length)h+=`<button class="btn ghost" data-act="revealNow">חשוף עכשיו (${n}/${ids.length} הצביעו)</button>`;}
+      return h;}
+    if(g.phase==='reveal')return revealUI(g,me,isHost);
+    return endUI(g);
+  }
+  // local
+  if(g.phase==='vote'){const id=L.order[L.i];
+    if(!L.show)return `<div class="top"><span>סיבוב ${g.round}/${g.total}</span><span>${L.i+1}/${L.order.length}</span></div><div class="card pass"><div class="emoji">📱</div><h2>תעבירו את הטלפון ל־${esc(nm(g,id))}</h2><p class="small">ושאף אחד אחר לא יציץ 👀</p><button class="btn pink" data-act="showMe">אני ${esc(nm(g,id))}, יאללה</button></div>`;
+    return qHeader(g)+voteUI(g,L.order,id);}
+  if(g.phase==='reveal')return revealUI(g,null,true);
+  return endUI(g);
+}
+function render(){
+  const a=document.activeElement;const id=a&&a.id;let s=null;try{s=a&&a.selectionStart;}catch(e){}
+  app.innerHTML=(S.screen==='home'?viewHome():S.screen==='localSetup'?viewLocalSetup():viewGame())+(S.toast?`<div class="toast">${esc(S.toast)}</div>`:'');
+  if(id){const el=document.getElementById(id);if(el){el.focus();try{if(s!=null)el.setSelectionRange(s,s);}catch(e){}}}
+}
+render();
+</script>
+</body>
+</html>
