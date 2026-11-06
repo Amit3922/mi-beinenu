@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta property="og:title" content="פרנקנציור 🎨">
+<meta property="og:description" content="כל אחד מצייר חלק אחר בגוף, ובסוף מגלים מה יצא">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>פרנקנציור</title>
+<script src="mqtt.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1a2e;--card:#16264a;--card2:#1f3463;--line:#33508f;--pink:#ff5e7e;--yellow:#ffd23f;--cyan:#3fe0ff;--green:#4dff9a;--text:#fff;--mut:#a9bde6}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 10% 0%,#1d4a7a 0,transparent 55%),radial-gradient(circle at 100% 100%,#5a2050 0,transparent 50%),var(--bg);background-attachment:fixed;color:var(--text);font-family:Rubik,system-ui,sans-serif}
+body{padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 28px)}
+#app{max-width:520px;margin:0 auto}
+h1{font-size:44px;font-weight:900;margin:22px 0 2px;text-align:center;letter-spacing:-1px}
+h1 span{color:var(--yellow)}
+h2{font-size:21px;margin:4px 0 10px}
+.sub{color:var(--mut);text-align:center;margin:0 0 18px}
+.card{background:var(--card);border-radius:20px;padding:16px;margin:12px 0;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.btn{display:block;width:100%;border:0;border-radius:16px;padding:15px;font:inherit;font-weight:800;font-size:18px;cursor:pointer;margin:10px 0 0;color:#1a0b33;background:var(--yellow);text-align:center;text-decoration:none}
+.btn:active{transform:scale(.97)}
+.btn.pink{background:var(--pink);color:#fff}
+.btn.cyan{background:var(--cyan)}
+.btn.ghost{background:transparent;color:var(--text);border:2px solid var(--line)}
+.btn:disabled{opacity:.35}
+input{width:100%;padding:14px;border-radius:14px;border:2px solid var(--line);background:#0c1630;color:#fff;font:inherit;font-size:17px;margin:6px 0;outline:none}
+input:focus{border-color:var(--yellow)}
+.row{display:flex;gap:8px;align-items:center}
+.row input{flex:1}
+.x{width:44px;height:44px;flex:none;border-radius:12px;border:0;background:var(--card2);color:#fff;font-size:20px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.chip{border:2px solid var(--line);background:transparent;color:#fff;border-radius:999px;padding:9px 14px;font:inherit;font-weight:600;font-size:15px;cursor:pointer}
+.chip.on{background:var(--yellow);border-color:var(--yellow);color:#1a0b33}
+.label{color:var(--mut);font-size:14px;margin:6px 0 8px}
+.small{font-size:13px;color:var(--mut);margin:4px 0 0}
+.err{color:#ff9a9a;font-size:14px;margin-top:8px}
+.center{text-align:center}
+.code{font-size:58px;font-weight:900;letter-spacing:10px;text-align:center;color:var(--yellow);direction:ltr;margin:4px 0}
+.plist{display:flex;flex-wrap:wrap;gap:8px}
+.ptag{background:var(--card2);border-radius:999px;padding:8px 12px;font-weight:600}
+.ptag.done{background:#1d6b47}
+.top{display:flex;justify-content:space-between;align-items:center;color:var(--mut);font-size:14px;font-weight:600}
+.part{font-size:26px;font-weight:900;margin:4px 0 0}
+.hint{color:#dfe8ff;font-size:14px;margin:4px 0 8px;line-height:1.45}
+.zone{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-left:4px}
+.padwrap{border-radius:16px;overflow:hidden;background:#fff;touch-action:none;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+canvas.pad{display:block;width:100%;height:auto;touch-action:none}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0}
+.sw{width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,.25);cursor:pointer;padding:0}
+.sw.on{border-color:#fff;transform:scale(1.15)}
+.sz{width:40px;height:36px;border-radius:10px;border:2px solid var(--line);background:var(--card2);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.sz.on{border-color:var(--yellow)}
+.sz i{display:block;background:#fff;border-radius:50%}
+.tb{border:0;border-radius:10px;background:var(--card2);color:#fff;font:inherit;font-weight:700;padding:8px 10px;cursor:pointer}
+.timer{font-weight:900;font-size:20px;color:var(--yellow)}
+.timer.low{color:var(--pink)}
+.fig{background:var(--card);border-radius:20px;padding:12px;margin:14px 0}
+.fig img{width:100%;border-radius:14px;background:#fff;display:block}
+.fig h3{margin:4px 4px 8px;font-size:20px}
+.credits{font-size:14px;color:#dfe8ff;margin:8px 4px 0;line-height:1.6}
+.pass{text-align:center;padding:30px 18px}
+.pass .emoji{font-size:64px}
+.toast{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 20px);left:50%;transform:translateX(-50%);background:var(--green);color:#0b2a18;font-weight:800;padding:10px 18px;border-radius:999px;z-index:5}
+.rules{padding-right:18px;margin:6px 0}.rules li{margin:4px 0;color:#dfe8ff}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ---------- constants ---------- */
+const W=600,PH=440,OV=70,STEP=PH-OV;
+const PARTS={
+ 3:[['ראש','ראש וצוואר. אפשר בן אדם, חיה, רובוט, מה שבא לך.'],['גוף וידיים','כתפיים, גוף, ידיים ובגדים.'],['רגליים','רגליים וכפות רגליים או נעליים.']],
+ 4:[['ראש','ראש וצוואר. אפשר בן אדם, חיה, רובוט, מה שבא לך.'],['גוף וידיים','כתפיים, גוף וידיים.'],['מותניים וירכיים','מותניים, חגורה, מכנסיים או חצאית.'],['רגליים','המשך הרגליים, ברכיים וכפות רגליים או נעליים.']]};
+const COLORS=['#111111','#e53935','#1e88e5','#43a047','#fdd835','#8e24aa','#fb8c00','#f48fb1','#795548','#ffffff'];
+const SIZES=[4,9,18];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const app=document.getElementById('app');
+const S={screen:'home',mode:null,name:'',joinCode:'',err:'',busy:false,localNames:['','',''],partsN:3,secs:90,color:'#111111',size:9,toast:'',offline:false,lastState:0,fromLink:false};
+try{const r=new URLSearchParams(location.search).get('r');if(r&&/^\d{4}$/.test(r)){S.joinCode=r;S.fromLink=true;}}catch(e){}
+const store={get(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+
+let G=null,L=null,net={g:null,present:[],ts:0},clockOff=0;
+const partsAll={};               // gid -> {"f-k": {by, s}}
+const partsOf=g=>g?(partsAll[g.gid]=partsAll[g.gid]||{}):{};
+let pad=null,padKey='';
+
+/* ---------- drawing ---------- */
+function cleanStrokes(s){if(!Array.isArray(s))return[];const out=[];let n=0;
+  for(const st of s.slice(0,600)){if(!st||!Array.isArray(st.p))continue;const c=/^#[0-9a-f]{6}$/i.test(st.c)?st.c:'#111111';const w=Math.max(1,Math.min(30,+st.w||6));
+    const p=st.p.slice(0,4000).map(v=>Math.max(-50,Math.min(700,Math.round(+v||0))));if(p.length<2)continue;n+=p.length;if(n>16000)break;out.push({c,w,p});}
+  return out;}
+function drawStrokes(ctx,strokes,dy){ctx.lineCap='round';ctx.lineJoin='round';
+  for(const s of strokes||[]){const p=s.p;ctx.strokeStyle=s.c;ctx.lineWidth=s.w;ctx.beginPath();ctx.moveTo(p[0],p[1]+dy);
+    if(p.length===2)ctx.lineTo(p[0]+0.1,p[1]+dy);for(let i=2;i<p.length;i+=2)ctx.lineTo(p[i],p[i+1]+dy);ctx.stroke();}}
+function makePad(wrap,guide,isLast){
+  const c=document.createElement('canvas');c.width=W;c.height=PH;c.className='pad';wrap.appendChild(c);
+  const ctx=c.getContext('2d');const p={strokes:[],c};let cur=null;
+  p.count=()=>p.strokes.reduce((a,s)=>a+s.p.length,0);
+  p.redraw=()=>{ctx.fillStyle='#fff';ctx.fillRect(0,0,W,PH);
+    if(guide){ctx.fillStyle='#fff3c4';ctx.fillRect(0,0,W,OV);ctx.save();ctx.beginPath();ctx.rect(0,0,W,OV);ctx.clip();drawStrokes(ctx,guide,-STEP);ctx.restore();}
+    if(!isLast){ctx.fillStyle='#dcefff';ctx.fillRect(0,STEP,W,OV);}
+    ctx.setLineDash([10,8]);ctx.strokeStyle='#9aa7b8';ctx.lineWidth=2;
+    if(guide){ctx.beginPath();ctx.moveTo(0,OV);ctx.lineTo(W,OV);ctx.stroke();}
+    if(!isLast){ctx.beginPath();ctx.moveTo(0,STEP);ctx.lineTo(W,STEP);ctx.stroke();}
+    ctx.setLineDash([]);drawStrokes(ctx,p.strokes,0);};
+  const pos=e=>{const r=c.getBoundingClientRect();return[Math.round((e.clientX-r.left)/r.width*W),Math.round((e.clientY-r.top)/r.height*PH)];};
+  c.addEventListener('pointerdown',e=>{e.preventDefault();try{c.setPointerCapture(e.pointerId);}catch(_){}if(p.count()>14000)return;
+    const[x,y]=pos(e);cur={c:S.color,w:S.size,p:[x,y]};p.strokes.push(cur);ctx.lineCap='round';ctx.strokeStyle=cur.c;ctx.lineWidth=cur.w;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+0.1,y);ctx.stroke();});
+  c.addEventListener('pointermove',e=>{if(!cur)return;e.preventDefault();const[x,y]=pos(e);const a=cur.p,lx=a[a.length-2],ly=a[a.length-1];
+    if((x-lx)**2+(y-ly)**2<9||p.count()>14000)return;a.push(x,y);ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=cur.c;ctx.lineWidth=cur.w;ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(x,y);ctx.stroke();});
+  const up=()=>{cur=null;};c.addEventListener('pointerup',up);c.addEventListener('pointercancel',up);c.addEventListener('pointerleave',up);
+  p.redraw();return p;}
+const figCache={};
+function composeFig(parts,f,n,gid){const have=[...Array(n).keys()].map(k=>parts[f+'-'+k]?1:0).join('');const key=gid+'|'+f+'|'+have;if(figCache[key])return figCache[key];
+  const H=n*STEP+OV;const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);
+  for(let k=0;k<n;k++){const p=parts[f+'-'+k];if(p)drawStrokes(x,p.s,k*STEP);}
+  return figCache[key]=c.toDataURL('image/png');}
+
+/* ---------- game model (shared) ---------- */
+const N=g=>g.order.length;
+const figFor=(g,j,k)=>(((j-k)%N(g))+N(g))%N(g);
+const drawerOf=(g,f,k)=>g.order[(f+k)%N(g)];
+const nm=(g,id)=>(g&&g.names&&g.names[id])||'?';
+const newGid=()=>Math.random().toString(36).slice(2,8);
+
+/* ---------- online (MQTT relay) ---------- */
+const BROKER='wss://broker.hivemq.com:8884/mqtt';
+let client=null,isHost=false,code='',myId=null,lastSeen={},lastPub='',tick=null,submitted={};
+const base=c=>'frankentziur/v1/'+c;
+function stablePid(){let v=store.get('fz_pid');if(!v){v='p'+Math.random().toString(36).slice(2,11);store.set('fz_pid',v);}return v;}
+const presentIds=()=>{const now=Date.now();return[myId,...Object.keys(lastSeen).filter(id=>id!==myId&&now-lastSeen[id]<15000)];};
+function curG(){return(S.mode==='local'||isHost)?G:net.g;}
+const now=()=>isHost||S.mode==='local'?Date.now():Date.now()+clockOff;
+const cleanName=n=>String(n||'').replace(/[\u0000-\u001f]/g,'').trim().slice(0,12)||'שחקן';
+function connect(onConnect,onMsg){
+  client=mqtt.connect(BROKER,{clientId:'fz_'+myId+'_'+Math.random().toString(36).slice(2,6),clean:true,keepalive:20,reconnectPeriod:1500,connectTimeout:8000});
+  client.on('connect',()=>{S.offline=false;onConnect();render();});
+  client.on('offline',()=>{S.offline=true;render();});
+  client.on('error',()=>{});
+  client.on('message',(t,m)=>{const parts=t.split('/');
+    if(parts[3]==='g'){const gid=parts[4],key=parts[5]+'-'+parts[6];let d=null;try{d=JSON.parse(m.toString());}catch(e){}
+      partsAll[gid]=partsAll[gid]||{};if(d&&typeof d.by==='string')partsAll[gid][key]={by:d.by,s:cleanStrokes(d.s)};else delete partsAll[gid][key];
+      if(isHost&&G&&G.gid===gid&&d){G.done[key]=1;hostUpdate();}else render();return;}
+    let d;try{d=JSON.parse(m.toString());}catch(e){return;}onMsg(t,d);});
+}
+function pub(topic,obj,retain){if(client)client.publish(topic,typeof obj==='string'?obj:JSON.stringify(obj),{qos:1,retain:!!retain});}
+function hostUpdate(force){
+  if(!G)return;const pres=presentIds();
+  if(G.phase==='lobby')Object.keys(G.names).forEach(id=>{if(!pres.includes(id))delete G.names[id];});
+  if(G.phase==='draw'){const n=N(G);const all=[...Array(n).keys()].every(f=>G.done[f+'-'+G.round]);
+    if(all||(G.ends&&Date.now()>G.ends+7000))advance(G);}
+  const st={g:G,present:pres};const s=JSON.stringify(st);
+  if(force||s!==lastPub){lastPub=s;pub(base(code)+'/state',{...st,ts:Date.now()},true);store.set('fz_host',{code,G,myId,at:Date.now()});}
+  render();
+}
+function advance(g){g.round++;if(g.round>=g.parts){g.phase='gallery';g.ends=0;}else g.ends=g.secs?Date.now()+g.secs*1000:0;}
+function onUp(d){
+  if(!d||typeof d.from!=='string'||d.from===myId)return;lastSeen[d.from]=Date.now();
+  if(G.phase==='lobby'&&(G.names[d.from]||Object.keys(G.names).length<8))G.names[d.from]=cleanName(d.name);
+  hostUpdate();
+}
+function startHosting(resume){
+  isHost=true;S.busy=true;S.err='';render();
+  if(resume){code=resume.code;G=resume.G;myId=resume.myId;}
+  else{myId=stablePid();code=String(Math.floor(1000+Math.random()*9000));G={phase:'lobby',gid:'',parts:S.partsN,secs:S.secs,round:0,order:[],names:{[myId]:cleanName(S.name)},ends:0,done:{}};}
+  lastSeen={};
+  connect(()=>{client.subscribe(base(code)+'/up',{qos:1});client.subscribe(base(code)+'/g/#',{qos:1});S.mode='online';S.screen='game';S.busy=false;hostUpdate(true);},
+    (t,d)=>{if(t.endsWith('/up'))onUp(d);});
+  clearInterval(tick);tick=setInterval(()=>{hostUpdate();},1000);
+  setTimeout(()=>{if(S.busy){S.busy=false;S.err='לא הצלחתי להתחבר לשרת. בדקו אינטרנט ונסו שוב.';render();}},12000);
+}
+function heartbeat(){pub(base(code)+'/up',{from:myId,name:cleanName(S.name)});
+  const g=net.g;if(g&&g.gid)Object.keys(submitted).forEach(k=>{const[gid,f,r]=k.split('|');if(gid===g.gid&&!g.done[f+'-'+r])pub(base(code)+`/g/${gid}/${f}/${r}`,submitted[k],true);});}
+function joinRoom(){
+  isHost=false;myId=stablePid();S.busy=true;S.err='';net={g:null,present:[],ts:0};render();let found=false;
+  connect(()=>{client.subscribe(base(code)+'/state',{qos:1});client.subscribe(base(code)+'/g/#',{qos:1});heartbeat();},
+    (t,d)=>{if(!t.endsWith('/state'))return;
+      if(!d||!d.g){if(!found){S.err='החדר הזה נסגר';leaveRoom(true);}return;}
+      if(!found&&d.ts&&Date.now()-d.ts>6*3600e3)return;
+      found=true;net=d;S.lastState=Date.now();clockOff=(d.ts||Date.now())-Date.now();
+      if(S.screen!=='game'){S.mode='online';S.screen='game';S.busy=false;store.set('fz_join',{code,name:S.name,at:Date.now()});}
+      if(!(d.present||[]).includes(myId))heartbeat();
+      render();});
+  clearInterval(tick);tick=setInterval(()=>{if(client&&client.connected)heartbeat();},3000);
+  setTimeout(()=>{if(!found){S.err='לא מצאתי חדר עם הקוד הזה';leaveRoom(true);}},9000);
+}
+function leaveRoom(keepErr){
+  clearInterval(tick);
+  if(isHost&&client){try{client.publish(base(code)+'/state','',{qos:1,retain:true});}catch(e){}store.del('fz_host');}
+  if(!isHost)store.del('fz_join');
+  const c=client;client=null;if(c)setTimeout(()=>{try{c.end(true);}catch(e){}},400);
+  isHost=false;G=null;net={g:null,present:[],ts:0};lastSeen={};submitted={};S.mode=null;S.screen='home';S.busy=false;if(!keepErr)S.err='';render();
+}
+function clearParts(g){if(!g||!g.gid||!client)return;const n=N(g);for(let f=0;f<n;f++)for(let k=0;k<g.parts;k++)pub(base(code)+`/g/${g.gid}/${f}/${k}`,'',true);}
+
+/* ---------- my current drawing task ---------- */
+function myTask(){
+  const g=curG();if(!g||g.phase!=='draw')return null;
+  if(S.mode==='local'){if(!L.show)return null;const f=figFor(g,L.j,g.round);return{g,f,k:g.round,key:'local-'+g.gid+'-'+f+'-'+g.round};}
+  const j=g.order.indexOf(myId);if(j<0)return null;const f=figFor(g,j,g.round);
+  if(g.done[f+'-'+g.round]||submitted[g.gid+'|'+f+'|'+g.round])return null;
+  return{g,f,k:g.round,key:'on-'+g.gid+'-'+f+'-'+g.round};
+}
+function submitDrawing(){
+  const t=myTask();if(!t||!pad)return;const{g,f,k}=t;const payload={by:S.mode==='local'?drawerOf(g,f,k):myId,s:pad.strokes};
+  partsOf(g)[f+'-'+k]={by:payload.by,s:cleanStrokes(payload.s)};pad=null;padKey='';
+  if(S.mode==='local'){L.j++;L.show=false;if(L.j>=N(g)){L.j=0;advance(g);}render();return;}
+  const body=JSON.stringify(payload);submitted[g.gid+'|'+f+'|'+k]=body;pub(base(code)+`/g/${g.gid}/${f}/${k}`,body,true);
+  if(isHost){G.done[f+'-'+k]=1;hostUpdate();}else render();
+}
+setInterval(()=>{const t=myTask();if(t&&t.g.ends&&now()>t.g.ends)submitDrawing();else if(curG()&&curG().phase==='draw')renderStatus();},500);
+
+/* ---------- actions ---------- */
+function toast(t){S.toast=t;render();setTimeout(()=>{S.toast='';render();},1600);}
+function copyText(t,ok){try{navigator.clipboard.writeText(t).then(()=>toast(ok)).catch(()=>toast('ההעתקה נחסמה'));}catch(e){toast('ההעתקה נחסמה');}}
+function startGameWith(g,order){g.order=order;g.gid=newGid();g.round=0;g.done={};g.phase='draw';g.ends=g.secs?Date.now()+g.secs*1000:0;}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function act(a,d){
+  const g=curG();const host=S.mode==='online'&&isHost;
+  switch(a){
+  case 'localSetup':S.screen='localSetup';S.err='';break;
+  case 'home':S.screen='home';S.mode=null;break;
+  case 'addName':if(S.localNames.length<8)S.localNames.push('');break;
+  case 'rmName':S.localNames.splice(+d.i,1);break;
+  case 'partsN':S.partsN=+d.n;if(host&&G.phase==='lobby'){G.parts=+d.n;hostUpdate();return;}break;
+  case 'secs':S.secs=+d.n;if(host&&G.phase==='lobby'){G.secs=+d.n;hostUpdate();return;}break;
+  case 'localStart':{const names=S.localNames.map(s=>s.trim().slice(0,12)).filter(Boolean);if(names.length<3){S.err='צריך לפחות 3 שחקנים';break;}
+    const map={};names.forEach((n,i)=>map['p'+i]=n);G={phase:'lobby',parts:S.partsN,secs:0,names:map,done:{}};startGameWith(G,Object.keys(map));
+    L={j:0,show:false};S.mode='local';S.screen='game';S.err='';break;}
+  case 'showMe':L.show=true;break;
+  case 'color':S.color=d.c;document.querySelectorAll('.sw').forEach(b=>b.classList.toggle('on',b.dataset.c===S.color));return;
+  case 'size':S.size=+d.s;document.querySelectorAll('.sz').forEach(b=>b.classList.toggle('on',+b.dataset.s===S.size));return;
+  case 'undo':if(pad){pad.strokes.pop();pad.redraw();}return;
+  case 'clear':if(pad){pad.strokes=[];pad.redraw();}return;
+  case 'submit':submitDrawing();return;
+  case 'skip':if(host&&G.phase==='draw'){advance(G);hostUpdate();return;}break;
+  case 'start':if(host){const ids=presentIds().filter(id=>G.names[id]).slice(0,8);if(ids.length>=3){startGameWith(G,shuffle(ids));hostUpdate();return;}}break;
+  case 'again':if(S.mode==='local'){S.screen='localSetup';S.mode=null;G=null;}
+    else if(host){clearParts(G);G.phase='lobby';G.order=[];G.done={};G.round=0;hostUpdate();return;}break;
+  case 'create':if(!S.name.trim()){S.err='כתבו שם קודם';break;}startHosting(null);return;
+  case 'resumeHost':{const r=store.get('fz_host');if(r)startHosting(r);return;}
+  case 'resumeJoin':{const r=store.get('fz_join');if(r){code=r.code;S.name=r.name||S.name;joinRoom();}return;}
+  case 'join':{const c=S.joinCode.replace(/\D/g,'');if(!S.name.trim()){S.err='כתבו שם קודם';break;}if(c.length!==4){S.err='קוד החדר הוא 4 ספרות';break;}code=c;joinRoom();return;}
+  case 'leave':leaveRoom();return;
+  case 'shareLink':copyText(`בואו לשחק ״פרנקנציור״ 🎨 ${location.origin}${location.pathname}?r=${code}`,'הקישור הועתק, שלחו בוואטסאפ');return;
+  }
+  render();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act(b.dataset.act,b.dataset);});
+document.addEventListener('input',e=>{const t=e.target;if(t.id==='name')S.name=t.value;else if(t.id==='jcode')S.joinCode=t.value;else if(t.dataset.ln!==undefined)S.localNames[+t.dataset.ln]=t.value;});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&client){if(isHost)hostUpdate(true);else heartbeat();}});
+
+/* ---------- views ---------- */
+const rules=`<ol class="rules"><li>כל שחקן מתחיל יצור משלו, ובכל סיבוב היצורים עוברים הלאה.</li><li>בכל סיבוב מציירים חלק אחר: ראש, גוף, רגליים…</li><li>רואים רק פס קטן מהחלק הקודם (האזור הצהוב) וממשיכים ממנו.</li><li>בסוף נחשפים כל היצורים המלאים 🤣</li></ol>`;
+const settings=()=>`<div class="label">כמה חלקים בגוף</div><div class="chips">${[3,4].map(n=>`<button class="chip ${S.partsN===n?'on':''}" data-act="partsN" data-n="${n}">${n} חלקים</button>`).join('')}</div>`
+  +(S.mode==='local'||S.screen==='localSetup'?'':`<div class="label">זמן לכל ציור</div><div class="chips">${[[60,'דקה'],[90,'דקה וחצי'],[120,'2 דקות'],[0,'בלי טיימר']].map(([n,l])=>`<button class="chip ${S.secs===n?'on':''}" data-act="secs" data-n="${n}">${l}</button>`).join('')}</div>`);
+function viewHome(){
+  const ok=typeof mqtt!=='undefined';const rh=store.get('fz_host'),rj=store.get('fz_join');const fresh=r=>r&&Date.now()-r.at<3*3600e3;
+  const online=!ok?`<p class="err">לא הצלחתי לטעון את רכיב החיבור. בדקו אינטרנט ורעננו.</p>`:`<input id="name" placeholder="השם שלך" maxlength="12" value="${esc(S.name)}">
+    ${S.fromLink?'':`<button class="btn pink" data-act="create" ${S.busy?'disabled':''}>${S.busy?'מתחבר…':'צור חדר חדש'}</button>`}
+    <div class="row" style="margin-top:8px"><input id="jcode" inputmode="numeric" placeholder="קוד חדר (4 ספרות)" maxlength="4" value="${esc(S.joinCode)}"><button class="btn cyan" style="width:auto;padding:14px 20px;margin:0" data-act="join" ${S.busy?'disabled':''}>הצטרף</button></div>`;
+  return `<h1>פרנקנ<span>ציור</span></h1><p class="sub">כל אחד מצייר חלק אחר בגוף, ובסוף מגלים מה יצא</p>
+  ${fresh(rh)?`<button class="btn cyan" data-act="resumeHost">↩️ חזור לחדר ${esc(rh.code)} (מארח)</button>`:fresh(rj)?`<button class="btn cyan" data-act="resumeJoin">↩️ חזור לחדר ${esc(rj.code)}</button>`:''}
+  <div class="card"><h2>🌐 כל אחד מהטלפון שלו</h2>${online}${S.err?`<div class="err">${esc(S.err)}</div>`:''}</div>
+  <div class="card"><h2>📱 טלפון אחד</h2><p class="small">מעבירים את הטלפון מיד ליד</p><button class="btn" data-act="localSetup">שחקו בטלפון אחד</button></div>
+  <div class="card"><h2>איך משחקים</h2>${rules}</div>
+  <a class="btn ghost" href="./">🗳️ למשחק השני: מי בינינו?</a>`;
+}
+function viewLocalSetup(){
+  return `<h1 style="font-size:34px">פרנקנ<span>ציור</span></h1>
+  <div class="card"><h2>מי משחק?</h2>${S.localNames.map((n,i)=>`<div class="row"><input id="ln${i}" data-ln="${i}" placeholder="שחקן ${i+1}" maxlength="12" value="${esc(n)}">${S.localNames.length>3?`<button class="x" data-act="rmName" data-i="${i}">×</button>`:''}</div>`).join('')}
+  ${S.localNames.length<8?`<button class="btn ghost" data-act="addName">+ הוסף שחקן</button>`:''}</div>
+  <div class="card">${settings()}</div>${S.err?`<div class="err center">${esc(S.err)}</div>`:''}
+  <button class="btn pink" data-act="localStart">יאללה מתחילים</button><button class="btn ghost" data-act="home">חזרה</button>`;
+}
+function statusHtml(){
+  const g=curG();if(!g||g.phase!=='draw')return'';
+  const left=g.ends?Math.max(0,Math.ceil((g.ends-now())/1000)):null;
+  const tm=left===null?'':`<span class="timer ${left<=10?'low':''}">⏱ ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}</span>`;
+  if(S.mode==='local')return `<div class="top"><span>סיבוב ${g.round+1}/${g.parts}</span>${tm}</div>`;
+  const n=N(g);const pend=[...Array(n).keys()].filter(f=>!g.done[f+'-'+g.round]).map(f=>drawerOf(g,f,g.round));
+  return `<div class="top"><span>סיבוב ${g.round+1}/${g.parts} · סיימו ${n-pend.length}/${n}</span>${tm}</div>`;
+}
+function renderStatus(){const el=document.getElementById('status');if(el)el.innerHTML=statusHtml();}
+function drawScreen(t){
+  const{g,f,k}=t;const[pn,ph]=PARTS[g.parts][k];const isLast=k===g.parts-1;
+  return `<div id="status">${statusHtml()}</div>
+  <div class="part">✏️ ${pn}</div>
+  <div class="hint">${ph}${k>0?`<br><span class="zone" style="background:#fff3c4"></span>בצהוב רואים סוף של החלק הקודם. תמשיך את הקווים משם.`:''}${!isLast?`<br><span class="zone" style="background:#dcefff"></span>בכחול, תסיים את הקווים עד הקצה כדי שהבא יוכל להמשיך.`:''}</div>
+  <div class="tools">${COLORS.map(c=>`<button class="sw ${S.color===c?'on':''}" data-act="color" data-c="${c}" style="background:${c}"></button>`).join('')}</div>
+  <div class="tools">${SIZES.map(s=>`<button class="sz ${S.size===s?'on':''}" data-act="size" data-s="${s}"><i style="width:${s/1.3+3}px;height:${s/1.3+3}px"></i></button>`).join('')}
+   <button class="tb" data-act="undo">↶ בטל</button><button class="tb" data-act="clear">🗑 נקה</button></div>
+  <div class="padwrap" id="padwrap"></div>
+  <button class="btn pink" data-act="submit">סיימתי ✓</button>`;
+}
+function viewGallery(g){
+  const parts=partsOf(g);const n=N(g);
+  let h=`<h1 style="font-size:34px">🎉 היצורים!</h1><p class="sub">לחיצה ארוכה על תמונה כדי לשמור אותה</p>`;
+  for(let f=0;f<n;f++){const missing=[...Array(g.parts).keys()].some(k=>!parts[f+'-'+k]);
+    h+=`<div class="fig"><h3>יצור #${f+1}</h3><img alt="יצור ${f+1}" src="${composeFig(parts,f,g.parts,g.gid)}">
+    <div class="credits">${[...Array(g.parts).keys()].map(k=>`${PARTS[g.parts][k][0]}: <b>${esc(nm(g,drawerOf(g,f,k)))}</b>`).join(' · ')}${missing&&S.mode!=='local'?'<br><span class="small">חלק עוד בדרך…</span>':''}</div></div>`;}
+  if(S.mode==='local')h+=`<button class="btn pink" data-act="again">משחק חדש</button><button class="btn ghost" data-act="home">לדף הבית</button>`;
+  else h+=(isHost?`<button class="btn pink" data-act="again">סיבוב חדש באותו חדר</button>`:'')+`<button class="btn ghost" data-act="leave">יציאה</button>`;
+  return h;
+}
+function viewGame(){
+  const g=curG();
+  if(S.mode==='local'){
+    if(g.phase==='gallery')return viewGallery(g);
+    const t=myTask();if(t)return drawScreen(t);
+    const id=g.order[L.j];
+    return `<div id="status">${statusHtml()}</div><div class="card pass"><div class="emoji">📱</div><h2>תעבירו את הטלפון ל־${esc(nm(g,id))}</h2><p class="small">החלק הבא: ${PARTS[g.parts][g.round][0]}. בלי להציץ 👀</p><button class="btn pink" data-act="showMe">אני ${esc(nm(g,id))}, יאללה</button></div>`;
+  }
+  if(!g)return `<div class="card center"><h2>מתחבר…</h2></div>`;
+  const banner=S.offline?`<div class="err center">📡 מתחבר מחדש…</div>`:(!isHost&&S.lastState&&Date.now()-S.lastState>25000&&g.phase!=='gallery')?`<div class="err center">⏳ המארח לא מגיב. אולי המסך שלו כבה.</div>`:'';
+  if(g.phase==='lobby'){const ids=(isHost?presentIds():(net.present||[])).filter(id=>g.names[id]);
+    if(isHost){S.partsN=g.parts;S.secs=g.secs;}
+    return banner+`<div class="center label">קוד החדר</div><div class="code">${esc(code)}</div>
+    ${isHost?`<button class="btn cyan" data-act="shareLink">📤 העתק קישור הזמנה</button>`:''}
+    <div class="card"><h2>שחקנים (${ids.length})</h2><div class="plist">${ids.map(id=>`<span class="ptag">${esc(nm(g,id))}${id===myId?' (אני)':''}</span>`).join('')}</div>${ids.length>=8?'<p class="small">מקסימום 8 שחקנים</p>':''}</div>
+    ${isHost?`<div class="card">${settings()}</div><button class="btn pink" data-act="start" ${ids.length>=3?'':'disabled'}>${ids.length>=3?'התחל משחק':'צריך לפחות 3 שחקנים'}</button>`
+      :`<div class="card center">${g.parts} חלקים · ${g.secs?g.secs+' שניות לציור':'בלי טיימר'}<p class="small">מחכים שהמארח יתחיל…</p></div>`}
+    <button class="btn ghost" data-act="leave">יציאה</button>`;}
+  if(g.phase==='gallery')return banner+viewGallery(g);
+  const t=myTask();if(t)return banner+drawScreen(t);
+  const inGame=g.order.includes(myId);const n=N(g);
+  const pend=[...Array(n).keys()].filter(f=>!g.done[f+'-'+g.round]).map(f=>drawerOf(g,f,g.round));
+  return banner+`<div id="status">${statusHtml()}</div><div class="card center"><h2>${inGame?'מעולה, הציור נשלח ✅':'המשחק כבר רץ, תצטרף לסיבוב הבא 👀'}</h2>
+  <div class="label">מחכים ל…</div><div class="plist" style="justify-content:center">${pend.map(id=>`<span class="ptag">${esc(nm(g,id))}</span>`).join('')||'<span class="small">עוברים לסיבוב הבא…</span>'}</div></div>
+  ${isHost&&pend.length&&pend.length<n?`<button class="btn ghost" data-act="skip">דלג לסיבוב הבא (מי שלא סיים יישאר ריק)</button>`:''}
+  ${isHost?'':`<button class="btn ghost" data-act="leave">יציאה</button>`}`;
+}
+function render(){
+  const t=S.screen==='game'?myTask():null;
+  const prevPart=t&&t.k>0?partsOf(t.g)[t.f+'-'+(t.k-1)]:null;const fullKey=t?t.key+(prevPart?'g':'n'):'';
+  if(t&&fullKey===padKey&&document.getElementById('padwrap')){renderStatus();const ts=document.querySelector('.toast');if(S.toast&&!ts)app.insertAdjacentHTML('beforeend',`<div class="toast">${esc(S.toast)}</div>`);else if(!S.toast&&ts)ts.remove();return;}
+  const a=document.activeElement;const id=a&&a.id;let s=null;try{s=a&&a.selectionStart;}catch(e){}
+  app.innerHTML=(S.screen==='home'?viewHome():S.screen==='localSetup'?viewLocalSetup():viewGame())+(S.toast?`<div class="toast">${esc(S.toast)}</div>`:'');
+  if(t){const keep=pad&&padKey.slice(0,-1)===t.key?pad.strokes:null;
+    pad=makePad(document.getElementById('padwrap'),prevPart?prevPart.s:null,t.k===t.g.parts-1);padKey=fullKey;if(keep){pad.strokes=keep;pad.redraw();}}
+  else{pad=null;padKey='';}
+  if(id){const el=document.getElementById(id);if(el){el.focus();try{if(s!=null)el.setSelectionRange(s,s);}catch(e){}}}
+}
+render();
+</script>
+</body>
+</html>

@@ -255,7 +255,8 @@ function viewHome(){
   ${fresh(rh)?`<button class="btn cyan" data-act="resumeHost">↩️ חזור לחדר ${esc(rh.code)} (מארח)</button>`:fresh(rj)?`<button class="btn cyan" data-act="resumeJoin">↩️ חזור לחדר ${esc(rj.code)}</button>`:''}
   <div class="card"><h2>🌐 כל אחד מהטלפון שלו</h2>${online}${S.err?`<div class="err">${esc(S.err)}</div>`:''}</div>
   <div class="card"><h2>📱 טלפון אחד</h2><p class="small">מעבירים את הטלפון מיד ליד</p><button class="btn" data-act="localSetup">שחקו בטלפון אחד</button></div>
-  <div class="card"><h2>איך משחקים</h2>${rules}</div>`;
+  <div class="card"><h2>איך משחקים</h2>${rules}</div>
+  <a class="btn cyan" href="draw.html">🎨 משחק חדש: פרנקנציור</a>`;
 }
 function viewLocalSetup(){
   return `<h1 style="font-size:34px">מי <span>בינינו?</span></h1>
